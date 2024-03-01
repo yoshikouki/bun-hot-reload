@@ -1,5 +1,6 @@
-import { type FSWatcher, watch } from "fs";
 import type { Serve } from "bun";
+import { watch, type FSWatcher } from "fs";
+import { injectHotReloader } from "./hot-reloader-injection";
 
 const defaultHotReloadOptions = {
   path: "/bun-hot-reload",
@@ -11,24 +12,6 @@ type HotReloadOptions = typeof defaultHotReloadOptions & {
 };
 type BuildConfig = Parameters<typeof Bun.build>[0];
 
-const makeLiveReloadScript = (hotReloadURL: string) => `
-<!-- start bun live reload script -->
-<script type="text/javascript">
-  (() => {
-    const socket = new WebSocket("ws://${hotReloadURL}");
-    socket.onopen = () => {
-      console.info("Hot reload enabled...");
-    }
-    socket.onmessage = (message) => {
-      if(message.data === '${defaultHotReloadOptions.command}') {
-        location.reload()
-      }
-    };
-  })();
-</script>
-<!-- end bun live reload script -->
-`;
-
 const buildByOptions = async (buildConfig?: BuildConfig) => {
   if (!buildConfig) return;
   await Bun.build(buildConfig);
@@ -38,14 +21,13 @@ const configureHotReload = <WebSocketDataType = undefined>(
   serveOptions: Serve<WebSocketDataType>,
   hotReloadOptions?: HotReloadOptions,
 ): Serve<WebSocketDataType> => {
+  if (process.env.NODE_ENV === "production") return serveOptions;
+
   const hotReloadPath = hotReloadOptions?.path ?? defaultHotReloadOptions.path;
 
   buildByOptions(hotReloadOptions?.buildConfig);
-  const watchers: { filepath: string; watcher: FSWatcher }[] =
-    hotReloadOptions?.watchPaths?.map((path) => ({
-      filepath: path,
-      watcher: watch(path),
-    })) ?? [];
+  const watchers: FSWatcher[] =
+    hotReloadOptions?.watchPaths?.map((path) => watch(path)) ?? [];
 
   return {
     ...serveOptions,
@@ -63,27 +45,30 @@ const configureHotReload = <WebSocketDataType = undefined>(
       }
 
       const response = await serveOptions.fetch(req, server);
-
       if (!response?.headers.get("Content-Type")?.startsWith("text/html")) {
         return response;
       }
 
-      const originalHtml = await response.text();
-      const liveReloadScript = makeLiveReloadScript(
-        `${reqUrl.host}${hotReloadPath}`,
-      );
-      const htmlWithLiveReload = originalHtml + liveReloadScript;
-
-      return new Response(htmlWithLiveReload, response);
+      try {
+        const html = await response.text();
+        const htmlWithHotReload = injectHotReloader({
+          html,
+          hotReloadURL: `${reqUrl.host}${hotReloadPath}`,
+          hotReloadCommand: defaultHotReloadOptions.command,
+        });
+        return new Response(htmlWithHotReload, response);
+      } catch (error) {
+        console.error(error);
+        return response;
+      }
     },
 
     websocket: {
       ...(serveOptions.websocket || {}),
       open: (ws) => {
         serveOptions.websocket?.open?.(ws);
-        for (const { filepath, watcher } of watchers) {
+        for (const watcher of watchers) {
           watcher.on("change", () => {
-            console.log(`File changed: ${filepath}`);
             buildByOptions(hotReloadOptions?.buildConfig);
             ws.send(defaultHotReloadOptions.command);
           });
