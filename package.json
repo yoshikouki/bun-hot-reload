@@ -1,0 +1,37 @@
+{
+  "name": "bun-hot-reload",
+  "module": "src/index.ts",
+  "type": "module",
+  "files": [
+    "src/index.ts"
+  ],
+  "scripts": {
+    "lint": "bun --bun x @biomejs/biome check .",
+    "lint:fix": "bun --bun x @biomejs/biome check --apply .",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.5.3",
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "bugs": {
+    "url": "https://github.com/yoshikouki/bun-hot-reload/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yoshikouki/bun-hot-reload.git"
+  },
+  "keywords": [
+    "bun",
+    "server",
+    "hot reload",
+    "refresh",
+    "web"
+  ],
+  "homepage": "https://github.com/yoshikouki/bun-hot-reload",
+  "author": "yoshikouki",
+  "license": "MIT"
+}
