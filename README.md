@@ -35,6 +35,8 @@ Bun.serve(
 );
 ```
 
+![Hot Reload Example](img/sample.gif)
+
 ## Configuration
 
 bun-hot-reload provides several options to customize the hot reloading behavior:
