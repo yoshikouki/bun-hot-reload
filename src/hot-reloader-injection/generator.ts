@@ -1,3 +1,5 @@
+import { logger } from "../logger";
+
 declare global {
   let location: {
     reload: () => void;
@@ -7,12 +9,20 @@ declare global {
 const hotReload = (hotReloadURL: string, hotReloadCommand: string) => {
   const socket = new WebSocket(hotReloadURL);
   socket.onopen = () => {
-    console.info("Hot reload enabled...");
+    console.info("[HMR] Hot reload enabled...");
   };
   socket.onmessage = (message) => {
     if (message.data === hotReloadCommand) {
       location.reload();
+    } else {
+      console.warn("[HMR] Unknown message:", message.data);
     }
+  };
+  socket.onclose = () => {
+    console.warn("[HMR] Hot reload disabled...");
+  };
+  socket.onerror = (error) => {
+    console.error("[HMR] Hot reload error:", error);
   };
 };
 
@@ -28,7 +38,7 @@ export const generateHotReloadScript = (
     const hotReloader = generateHotReload(hotReloadURL, hotReloadCommand);
     return `<script type="text/javascript">${hotReloader}</script>`;
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     return "";
   }
 };

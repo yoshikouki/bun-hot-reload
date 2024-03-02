@@ -8,6 +8,7 @@ export const App = () => {
       </head>
       <body>
         <h1>Hello, Bun!</h1>
+        <p>{new Date().toISOString()}</p>
       </body>
     </html>
   );

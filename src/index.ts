@@ -1,12 +1,13 @@
+import { type FSWatcher, watch } from "fs";
 import type {
   Serve,
   Server,
   WebSocketHandler,
   WebSocketServeOptions,
 } from "bun";
-import { watch, type FSWatcher } from "fs";
 
 import { injectHotReloader } from "./hot-reloader-injection";
+import { logger } from "./logger";
 
 type InitServeOptions<WebSocketDataType = undefined> = Omit<
   WebSocketServeOptions<WebSocketDataType>,
@@ -30,6 +31,7 @@ const defaultHotReloadOptions = {
 const buildByOptions = async (buildConfig?: BuildConfig) => {
   if (!buildConfig) return;
   await Bun.build(buildConfig);
+  logger.log(`Built by options: ${JSON.stringify(buildConfig)}`);
 };
 
 const configureHotReload = <WebSocketDataType = undefined>(
@@ -53,7 +55,7 @@ const configureHotReload = <WebSocketDataType = undefined>(
         if (server.upgrade(req)) {
           return;
         }
-        console.error("Failed to upgrade websocket connection.");
+        logger.error("Failed to upgrade websocket connection.");
         return new Response("Failed to upgrade websocket connection.", {
           status: 400,
         });
@@ -73,7 +75,7 @@ const configureHotReload = <WebSocketDataType = undefined>(
         });
         return new Response(htmlWithHotReload, response);
       } catch (error) {
-        console.error(error);
+        logger.error(error);
         return response;
       }
     },
@@ -89,7 +91,7 @@ const configureHotReload = <WebSocketDataType = undefined>(
             ws.send(defaultHotReloadOptions.command);
           });
         }
-        console.log("Hot reload enabled...");
+        logger.log("Hot reload enabled...");
       },
     },
   };
