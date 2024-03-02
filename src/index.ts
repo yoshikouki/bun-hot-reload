@@ -1,5 +1,6 @@
 import { type FSWatcher, watch } from "fs";
 import type {
+  BuildConfig,
   Serve,
   Server,
   WebSocketHandler,
@@ -13,7 +14,10 @@ type InitServeOptions<WebSocketDataType = undefined> = Omit<
   WebSocketServeOptions<WebSocketDataType>,
   "fetch" | "websocket"
 > & {
-  fetch: (request: Request, server: Server) => Response | Promise<Response>;
+  fetch: (
+    request: Request,
+    server: Server,
+  ) => Response | undefined | Promise<Response | undefined>;
   websocket?: WebSocketHandler<WebSocketDataType>;
 };
 
@@ -21,7 +25,6 @@ type HotReloadOptions = Partial<typeof defaultHotReloadOptions> & {
   buildConfig?: BuildConfig;
   watchPaths?: string[];
 };
-type BuildConfig = Parameters<typeof Bun.build>[0];
 
 const defaultHotReloadOptions = {
   hotReloadPath: "/bun-hot-reload",
@@ -40,7 +43,7 @@ const getHotReloadConfig = (hotReloadOptions?: HotReloadOptions) => {
   const watchPaths =
     hotReloadOptions?.watchPaths && hotReloadOptions.watchPaths.length > 0
       ? hotReloadOptions.watchPaths
-      : [process.cwd()];
+      : [`${process.cwd()}/src`];
   const reloadCommand =
     hotReloadOptions?.reloadCommand ?? defaultHotReloadOptions.reloadCommand;
   return {
@@ -71,7 +74,7 @@ const configureHotReload = <WebSocketDataType = undefined>(
     fetch: async (req, server) => {
       const reqUrl = new URL(req.url);
       if (reqUrl.pathname === hotReloadPath) {
-        if (server.upgrade(req)) {
+        if (server.upgrade(req, { data: { hotReload: true } })) {
           return;
         }
         logger.error("Failed to upgrade websocket connection.");
@@ -103,14 +106,17 @@ const configureHotReload = <WebSocketDataType = undefined>(
       message: (ws, message) => {},
       ...(serveOptions.websocket || {}),
       open: (ws) => {
-        serveOptions.websocket?.open?.(ws);
-        for (const watcher of watchers) {
-          watcher.on("change", () => {
-            buildByOptions(buildConfig);
-            ws.send(reloadCommand);
-          });
+        if (ws.data?.hotReload) {
+          for (const watcher of watchers) {
+            watcher.on("change", () => {
+              buildByOptions(buildConfig);
+              ws.send(reloadCommand);
+            });
+          }
+          logger.log("Hot reload enabled...");
+        } else {
+          serveOptions.websocket?.open?.(ws);
         }
-        logger.log("Hot reload enabled...");
       },
     },
   };
