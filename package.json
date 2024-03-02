@@ -1,15 +1,16 @@
 {
   "name": "bun-hot-reload",
   "version": "1.0.0",
-  "module": "src/index.ts",
+  "module": "dist/index.js",
   "type": "module",
   "files": [
-    "src/index.ts"
+    "dist/*"
   ],
   "scripts": {
     "lint": "bun --bun x @biomejs/biome check .",
     "lint:fix": "bun --bun x @biomejs/biome check --apply .",
-    "test": "bun test"
+    "test": "bun test",
+    "build": "bun build ./src/index.ts --outdir ./dist --target bun"
   },
   "devDependencies": {
     "@biomejs/biome": "1.5.3",
