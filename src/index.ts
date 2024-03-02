@@ -43,8 +43,14 @@ const configureHotReload = <WebSocketDataType = undefined>(
   const hotReloadPath = hotReloadOptions?.path ?? defaultHotReloadOptions.path;
 
   buildByOptions(hotReloadOptions?.buildConfig);
+  const watchPaths =
+    hotReloadOptions?.watchPaths?.length > 0
+      ? hotReloadOptions.watchPaths
+      : [process.cwd()];
+
   const watchers: FSWatcher[] =
-    hotReloadOptions?.watchPaths?.map((path) => watch(path)) ?? [];
+    watchPaths?.map((path) => watch(path, { recursive: true })) ?? [];
+  logger.log(`Watching: ${JSON.stringify(watchPaths)}`);
 
   return {
     ...serveOptions,
