@@ -1,7 +1,7 @@
 import { logger } from "../logger";
 
 declare global {
-  let location: {
+  const location: {
     reload: () => void;
   };
 }

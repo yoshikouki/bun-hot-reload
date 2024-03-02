@@ -24,8 +24,8 @@ type HotReloadOptions = Partial<typeof defaultHotReloadOptions> & {
 type BuildConfig = Parameters<typeof Bun.build>[0];
 
 const defaultHotReloadOptions = {
-  path: "/bun-hot-reload",
-  command: "reload",
+  hotReloadPath: "/bun-hot-reload",
+  reloadCommand: "reload",
 };
 
 const buildByOptions = async (buildConfig?: BuildConfig) => {
@@ -34,20 +34,33 @@ const buildByOptions = async (buildConfig?: BuildConfig) => {
   logger.log(`Built by options: ${JSON.stringify(buildConfig)}`);
 };
 
+const getHotReloadConfig = (hotReloadOptions?: HotReloadOptions) => {
+  const hotReloadPath =
+    hotReloadOptions?.hotReloadPath ?? defaultHotReloadOptions.hotReloadPath;
+  const watchPaths =
+    hotReloadOptions?.watchPaths && hotReloadOptions.watchPaths.length > 0
+      ? hotReloadOptions.watchPaths
+      : [process.cwd()];
+  const reloadCommand =
+    hotReloadOptions?.reloadCommand ?? defaultHotReloadOptions.reloadCommand;
+  return {
+    hotReloadPath,
+    watchPaths,
+    reloadCommand,
+    buildConfig: hotReloadOptions?.buildConfig,
+  };
+};
+
 const configureHotReload = <WebSocketDataType = undefined>(
   serveOptions: InitServeOptions<WebSocketDataType>,
   hotReloadOptions?: HotReloadOptions,
 ): Serve<WebSocketDataType> => {
-  if (process.env.NODE_ENV === "production") return serveOptions;
+  if (import.meta.env.NODE_ENV === "production") return serveOptions;
 
-  const hotReloadPath = hotReloadOptions?.path ?? defaultHotReloadOptions.path;
+  const { hotReloadPath, watchPaths, reloadCommand, buildConfig } =
+    getHotReloadConfig(hotReloadOptions);
 
-  buildByOptions(hotReloadOptions?.buildConfig);
-  const watchPaths =
-    hotReloadOptions?.watchPaths?.length > 0
-      ? hotReloadOptions.watchPaths
-      : [process.cwd()];
-
+  buildByOptions(buildConfig);
   const watchers: FSWatcher[] =
     watchPaths?.map((path) => watch(path, { recursive: true })) ?? [];
   logger.log(`Watching: ${JSON.stringify(watchPaths)}`);
@@ -77,7 +90,7 @@ const configureHotReload = <WebSocketDataType = undefined>(
         const htmlWithHotReload = injectHotReloader({
           html,
           hotReloadURL: `${reqUrl.host}${hotReloadPath}`,
-          hotReloadCommand: defaultHotReloadOptions.command,
+          hotReloadCommand: reloadCommand,
         });
         return new Response(htmlWithHotReload, response);
       } catch (error) {
@@ -93,8 +106,8 @@ const configureHotReload = <WebSocketDataType = undefined>(
         serveOptions.websocket?.open?.(ws);
         for (const watcher of watchers) {
           watcher.on("change", () => {
-            buildByOptions(hotReloadOptions?.buildConfig);
-            ws.send(defaultHotReloadOptions.command);
+            buildByOptions(buildConfig);
+            ws.send(reloadCommand);
           });
         }
         logger.log("Hot reload enabled...");
