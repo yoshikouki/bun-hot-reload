@@ -1,16 +1,31 @@
-import type { Serve } from "bun";
+import type {
+  Serve,
+  Server,
+  WebSocketHandler,
+  WebSocketServeOptions,
+} from "bun";
 import { watch, type FSWatcher } from "fs";
+
 import { injectHotReloader } from "./hot-reloader-injection";
+
+type InitServeOptions<WebSocketDataType = undefined> = Omit<
+  WebSocketServeOptions<WebSocketDataType>,
+  "fetch" | "websocket"
+> & {
+  fetch: (request: Request, server: Server) => Response | Promise<Response>;
+  websocket?: WebSocketHandler<WebSocketDataType>;
+};
+
+type HotReloadOptions = Partial<typeof defaultHotReloadOptions> & {
+  buildConfig?: BuildConfig;
+  watchPaths?: string[];
+};
+type BuildConfig = Parameters<typeof Bun.build>[0];
 
 const defaultHotReloadOptions = {
   path: "/bun-hot-reload",
   command: "reload",
 };
-type HotReloadOptions = typeof defaultHotReloadOptions & {
-  buildConfig?: BuildConfig;
-  watchPaths?: string[];
-};
-type BuildConfig = Parameters<typeof Bun.build>[0];
 
 const buildByOptions = async (buildConfig?: BuildConfig) => {
   if (!buildConfig) return;
@@ -18,7 +33,7 @@ const buildByOptions = async (buildConfig?: BuildConfig) => {
 };
 
 const configureHotReload = <WebSocketDataType = undefined>(
-  serveOptions: Serve<WebSocketDataType>,
+  serveOptions: InitServeOptions<WebSocketDataType>,
   hotReloadOptions?: HotReloadOptions,
 ): Serve<WebSocketDataType> => {
   if (process.env.NODE_ENV === "production") return serveOptions;
@@ -64,6 +79,7 @@ const configureHotReload = <WebSocketDataType = undefined>(
     },
 
     websocket: {
+      message: (ws, message) => {},
       ...(serveOptions.websocket || {}),
       open: (ws) => {
         serveOptions.websocket?.open?.(ws);
